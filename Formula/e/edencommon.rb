@@ -1,8 +1,8 @@
 class Edencommon < Formula
   desc "Shared library for Watchman and Eden projects"
   homepage "https://github.com/facebookexperimental/edencommon"
-  url "https://github.com/facebookexperimental/edencommon/archive/refs/tags/v2026.09.21.00.tar.gz"
-  sha256 "f7d3012cd3fbde90dda2d9ef476167dd71448894afe2c2ef4e78553dd1dedd9d"
+  url "https://github.com/facebookexperimental/edencommon/archive/refs/tags/v2026.09.28.00.tar.gz"
+  sha256 "6e9a706de0c9eea6733a2b049d5dd060b1b42f3462cff1d67f936da820339b5e"
   license "MIT"
   compatibility_version 1
   head "https://github.com/facebookexperimental/edencommon.git", branch: "main"
@@ -26,15 +26,6 @@ class Edencommon < Formula
   depends_on "fb303"
   depends_on "fmt"
   depends_on "folly"
-
-  # GCC 13 libstdc++ no longer pulls in <string> via <string_view>.
-  # PR ref: https://github.com/facebookexperimental/edencommon/pull/32
-  patch do
-    url "https://github.com/facebookexperimental/edencommon/commit/7dc082da238446cde535b03370be0b709701b7ac.patch?full_index=1"
-    sha256 "1becb3b9bcba13f19cb697baa015bece72b0330e4beae6db5a459f4e6fbff5a5"
-    type :unofficial
-    resolves "https://github.com/facebookexperimental/edencommon/pull/32"
-  end
 
   def install
     # Fix "Process terminated due to timeout" by allowing a longer timeout.
