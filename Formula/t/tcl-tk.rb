@@ -1,12 +1,11 @@
 class TclTk < Formula
   desc "Tool Command Language"
   homepage "https://www.tcl-lang.org"
-  url "https://downloads.sourceforge.net/project/tcl/Tcl/9.0.4/tcl9.0.4-src.tar.gz"
-  mirror "https://fossies.org/linux/misc/tcl9.0.4-src.tar.gz"
-  sha256 "d0aed49230bc02a65c1e0229e65f34590a4b037ec40d546f32573b467f7551ea"
+  url "https://downloads.sourceforge.net/project/tcl/Tcl/9.1.0/tcl9.1.0-src.tar.gz"
+  mirror "https://fossies.org/linux/misc/tcl9.1.0-src.tar.gz"
+  sha256 "536c45543f64d6eb11832d97ba3494aacff046fbc5040273bd55258d0e448ff1"
   license "TCL"
-  revision 1
-  compatibility_version 1
+  compatibility_version 2
 
   livecheck do
     url :stable
@@ -26,8 +25,12 @@ class TclTk < Formula
   on_linux do
     depends_on "freetype" => :build
     depends_on "pkgconf" => :build
+    depends_on "fontconfig"
+    depends_on "harfbuzz"
     depends_on "libx11"
     depends_on "libxext"
+    depends_on "libxft"
+    depends_on "libxrender"
     depends_on "zlib-ng-compat"
   end
 
@@ -55,9 +58,9 @@ class TclTk < Formula
   end
 
   resource "tk" do
-    url "https://downloads.sourceforge.net/project/tcl/Tcl/9.0.4/tk9.0.4-src.tar.gz"
-    mirror "https://fossies.org/linux/misc/tk9.0.4-src.tar.gz"
-    sha256 "d7a146d2917eb8b5cc95276dbf0e3d03c7464d2b19c1675357857c989301dbb4"
+    url "https://downloads.sourceforge.net/project/tcl/Tcl/9.1.0/tk9.1.0-src.tar.gz"
+    mirror "https://fossies.org/linux/misc/tk9.1.0-src.tar.gz"
+    sha256 "772ce7a97c07c2db4c957c93af7ab4dff4bd3037772836b6afbcd0974023b3d6"
 
     livecheck do
       formula :parent
@@ -170,6 +173,11 @@ class TclTk < Formula
   end
 
   test do
+    if OS.mac?
+      ENV["CFFIXED_USER_HOME"] = testpath
+      (testpath/"Library/Caches").mkpath
+    end
+
     assert_match "#{HOMEBREW_PREFIX}/lib", pipe_output("#{bin}/tclsh", "puts $auto_path\n")
     assert_equal "honk", pipe_output("#{bin}/tclsh", "puts honk\n").chomp
 
