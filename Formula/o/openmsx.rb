@@ -2,7 +2,7 @@ class Openmsx < Formula
   desc "MSX emulator"
   homepage "https://openmsx.org/"
   license "GPL-2.0-or-later"
-  revision 2
+  revision 3
   head "https://github.com/openMSX/openMSX.git", branch: "master"
 
   stable do
