@@ -2,6 +2,7 @@ class Bsc < Formula
   desc "Bluespec Compiler (BSC)"
   homepage "https://github.com/B-Lang-org/bsc"
   license "BSD-3-Clause"
+  revision 1
   head "https://github.com/B-Lang-org/bsc.git", branch: "main"
 
   stable do
@@ -47,6 +48,8 @@ class Bsc < Formula
 
   conflicts_with "libbsc", because: "both install `bsc` binaries"
 
+  # TODO: Remove the Tcl 9.1 workaround once upstream supports it.
+  # https://github.com/B-Lang-org/bsc/issues/1130
   # Workaround to use brew `tcl-tk` until upstream adds support
   # https://github.com/B-Lang-org/bsc/issues/504#issuecomment-1286287406
   patch :DATA
@@ -167,3 +170,18 @@ __END__
  	echo -ltcl${TCL_SUFFIX}
  	exit 0
      fi
+--- a/platform.mk
++++ b/platform.mk
+@@ -77,10 +77,10 @@
+ ifeq ($(TCL_VERSION),8.6)
+ TCL_DEFS=
+ else
+-ifeq ($(TCL_VERSION),9.0)
++ifneq ($(filter 9.0 9.1,$(TCL_VERSION)),)
+ TCL_DEFS=TCL9
+ else
+-$(error Unsupported Tcl version: $(TCL_VERSION)
++$(error Unsupported Tcl version: $(TCL_VERSION))
+ endif
+ endif
+ endif
