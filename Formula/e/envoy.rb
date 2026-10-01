@@ -4,16 +4,17 @@ class Envoy < Formula
   license "Apache-2.0"
 
   stable do
-    url "https://github.com/envoyproxy/envoy/archive/refs/tags/v1.39.1.tar.gz"
-    sha256 "3fca3330b3c9b632d0039f4da1ece3e177fc12348907ebaa8be7b489a9f9287f"
+    url "https://github.com/envoyproxy/envoy/archive/refs/tags/v1.39.2.tar.gz"
+    sha256 "4c897373699a45e848f4abf1892143f693c1d0bfd4414f73da57957697f35d6e"
 
     depends_on "llvm@18" => :build
 
-    # Allow using host-installed toolchains
+    # TODO: remove once 1.39 includes host-toolchain support, upstream PR ref, https://github.com/envoyproxy/envoy/pull/47963
     patch do
-      url "https://github.com/envoyproxy/envoy/commit/be513213e888c443f4e00b1343cc05149f4f92a7.patch?full_index=1"
-      sha256 "363bf44a752c44b3532b7ce6ebc541e8a85b528ae7c79a6f7e621c881358a106"
-      type :backport
+      url "https://github.com/envoyproxy/envoy/commit/3806cefa801e337fe0ce182c00019079c03076a7.patch?full_index=1"
+      sha256 "d2e5eea97cc244a3ba8d2dd9e477a02f2e757497213a49ea77c24d3f71aebe3e"
+      type :unofficial
+      resolves "https://github.com/envoyproxy/envoy/pull/47963"
     end
   end
 
@@ -103,6 +104,16 @@ class Envoy < Formula
         --@envoy//bazel/foreign_cc:parallel_builds
         --define=wasm=wamr
         --copt=-Wno-nullability-completeness
+      ]
+    end
+    if OS.mac?
+      # TODO: Remove once the configured LLVM linker supports Xcode 27 SDK targets.
+      # https://github.com/envoyproxy/envoy/issues/47964
+      args += %w[
+        --linkopt=--ld-path=/usr/bin/ld
+        --host_linkopt=--ld-path=/usr/bin/ld
+        --features=-supports_start_end_lib
+        --host_features=-supports_start_end_lib
       ]
     end
     if OS.linux?
