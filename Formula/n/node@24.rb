@@ -4,6 +4,7 @@ class NodeAT24 < Formula
   url "https://nodejs.org/dist/v24.21.0/node-v24.21.0.tar.xz"
   sha256 "a6f54defb6fd7c84f41dba13d61e78e9b4e0961712cf61f29715c05f5ced94fc"
   license "MIT"
+  revision 1
   compatibility_version 1
 
   livecheck do
