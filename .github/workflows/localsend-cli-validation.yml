@@ -44,12 +44,12 @@ jobs:
           cd "$(brew --repository homebrew/core)"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git show "$GITHUB_SHA:Formula/l/localsend-cli.rb" | cmp - Formula/l/localsend-cli.rb
-          brew trust --formula homebrew/core/localsend-cli
+          brew trust --tap homebrew/core
           brew config
 
       - name: Build, install, and test from source
         run: |
-          brew install --build-from-source localsend-cli
+          brew install --build-from-source --build-bottle localsend-cli
           brew test localsend-cli
 
       - name: Audit and style
