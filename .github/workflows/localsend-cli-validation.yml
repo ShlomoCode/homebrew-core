@@ -23,7 +23,7 @@ jobs:
   formula:
     name: ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
@@ -47,10 +47,23 @@ jobs:
           brew trust --tap homebrew/core
           brew config
 
+      - name: Build Intel dependencies unavailable as bottles
+        if: matrix.runner == 'macos-15-intel'
+        run: |
+          df -h /
+          brew install --no-ask --only-dependencies localsend-cli
+          df -h /
+
       - name: Build, install, and test from source
         run: |
           brew install --build-bottle localsend-cli
           brew test localsend-cli
+
+      - name: Transfer a file with the source installation
+        run: |
+          mkdir -p "$RUNNER_TEMP/localsend-artifacts/logs/source"
+          python3 "$(brew --repository homebrew/core)/support/localsend-cli-e2e.py" \
+            --log-dir "$RUNNER_TEMP/localsend-artifacts/logs/source"
 
       - name: Audit and style
         run: |
@@ -59,4 +72,52 @@ jobs:
           brew style Formula/l/localsend-cli.rb
 
       - name: Build a bottle
-        run: brew bottle --no-rebuild localsend-cli
+        run: |
+          mkdir -p "$RUNNER_TEMP/localsend-artifacts"
+          cd "$RUNNER_TEMP/localsend-artifacts"
+          brew bottle --json --no-rebuild localsend-cli
+          shopt -s nullglob
+          bottles=(localsend-cli--1.18.2.*.bottle.tar.gz)
+          metadata=(localsend-cli--1.18.2.*.bottle.json)
+          test "${#bottles[@]}" -eq 1
+          test "${#metadata[@]}" -eq 1
+
+      - name: Reinstall the generated bottle and transfer a file
+        run: |
+          cd "$RUNNER_TEMP/localsend-artifacts"
+          shopt -s nullglob
+          bottles=(localsend-cli--1.18.2.*.bottle.tar.gz)
+          test "${#bottles[@]}" -eq 1
+          brew uninstall localsend-cli
+          brew install --force-bottle "$PWD/${bottles[0]}"
+          python3 - "$(brew --cellar localsend-cli)/1.18.2/INSTALL_RECEIPT.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as receipt:
+              assert json.load(receipt)["poured_from_bottle"] is True
+          PY
+          brew test localsend-cli
+          mkdir -p "$RUNNER_TEMP/localsend-artifacts/logs/bottle"
+          python3 "$(brew --repository homebrew/core)/support/localsend-cli-e2e.py" \
+            --log-dir "$RUNNER_TEMP/localsend-artifacts/logs/bottle"
+
+      - name: Collect Homebrew logs
+        if: always()
+        run: |
+          artifacts="$RUNNER_TEMP/localsend-artifacts"
+          mkdir -p "$artifacts/logs/homebrew"
+          logs="$(brew ruby -e 'puts HOMEBREW_LOGS')"
+          for formula in localsend-cli rust llvm openssl@3 libssh2 pkgconf readline xz python@3.14; do
+            if [[ -d "$logs/$formula" ]]; then
+              cp -R "$logs/$formula" "$artifacts/logs/homebrew/$formula"
+            fi
+          done
+
+      - name: Upload bottles, metadata, and diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: localsend-cli-${{ matrix.runner }}
+          path: ${{ runner.temp }}/localsend-artifacts
+          if-no-files-found: warn
