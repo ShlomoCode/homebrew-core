@@ -41,19 +41,21 @@ jobs:
 
       - name: Confirm formula under test
         run: |
+          cd "$(brew --repository homebrew/core)"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          cmp Formula/l/localsend-cli.rb "$(brew --repository homebrew/core)/Formula/l/localsend-cli.rb"
+          git show "$GITHUB_SHA:Formula/l/localsend-cli.rb" | cmp - Formula/l/localsend-cli.rb
           brew config
-
-      - name: Audit and style
-        run: |
-          brew audit --new --strict localsend-cli
-          brew style Formula/l/localsend-cli.rb
 
       - name: Build, install, and test from source
         run: |
           brew install --build-from-source localsend-cli
           brew test localsend-cli
+
+      - name: Audit and style
+        run: |
+          cd "$(brew --repository homebrew/core)"
+          brew audit --new --strict localsend-cli
+          brew style Formula/l/localsend-cli.rb
 
       - name: Build a bottle
         run: brew bottle --no-rebuild localsend-cli
