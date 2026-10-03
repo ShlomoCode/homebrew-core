@@ -1,0 +1,59 @@
+name: Validate LocalSend CLI formula
+
+on:
+  push:
+    branches:
+      - ci-localsend-cli-1.18.2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_DEVELOPER: 1
+  HOMEBREW_GITHUB_ACTIONS: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_NO_INSTALL_FROM_API: 1
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  formula:
+    name: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - macos-15-intel
+    steps:
+      - name: Set up Homebrew and check out the tap
+        uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+        with:
+          core: true
+          cask: false
+
+      - name: Confirm formula under test
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          cmp Formula/l/localsend-cli.rb "$(brew --repository homebrew/core)/Formula/l/localsend-cli.rb"
+          brew config
+
+      - name: Audit and style
+        run: |
+          brew audit --new --strict localsend-cli
+          brew style Formula/l/localsend-cli.rb
+
+      - name: Build, install, and test from source
+        run: |
+          brew install --build-from-source localsend-cli
+          brew test localsend-cli
+
+      - name: Build a bottle
+        run: brew bottle --no-rebuild localsend-cli
