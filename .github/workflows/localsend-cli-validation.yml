@@ -49,7 +49,7 @@ jobs:
 
       - name: Build, install, and test from source
         run: |
-          brew install --build-from-source --build-bottle localsend-cli
+          brew install --build-bottle localsend-cli
           brew test localsend-cli
 
       - name: Audit and style
