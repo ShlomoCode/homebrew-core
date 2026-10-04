@@ -1,0 +1,120 @@
+name: Revalidate LocalSend CLI formula test
+
+on:
+  push:
+    branches:
+      - codex/localsend-cli-revalidation
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  HOMEBREW_DEVELOPER: 1
+  HOMEBREW_GITHUB_ACTIONS: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_NO_INSTALL_FROM_API: 1
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  formula-test:
+    name: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - macos-15-intel
+    steps:
+      - name: Set up Homebrew and check out the tap
+        uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+        with:
+          core: true
+          cask: false
+
+      - name: Confirm exact updated formula
+        run: |
+          cd "$(brew --repository homebrew/core)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD:Formula/l/localsend-cli.rb)" = 32b778c738427c3b4e0784d676f460bf23bf85c4
+          git show "$GITHUB_SHA:Formula/l/localsend-cli.rb" | cmp - Formula/l/localsend-cli.rb
+          git diff 3943882c8e9f0c83903dbe588f7cb7e00593b159 HEAD -- Formula/l/localsend-cli.rb
+          brew trust --tap homebrew/core
+
+      - name: Download original four-platform bottle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: localsend-cli-${{ matrix.runner }}
+          run-id: 37147613379
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/localsend-input
+
+      - name: Verify bottle checksum and build provenance
+        run: |
+          mkdir -p "$RUNNER_TEMP/localsend-revalidation"
+          python3 - "$RUNNER_TEMP/localsend-input" "$RUNNER_TEMP/localsend-revalidation" <<'PYTHON'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+
+          source, output = map(pathlib.Path, sys.argv[1:])
+          bottles = list(source.glob("localsend-cli--1.18.2.*.bottle.tar.gz"))
+          metadata = list(source.glob("localsend-cli--1.18.2.*.bottle.json"))
+          assert len(bottles) == len(metadata) == 1, (bottles, metadata)
+          details = json.loads(metadata[0].read_text())["localsend-cli"]
+          assert details["formula"]["pkg_version"] == "1.18.2"
+          assert details["formula"]["tap_git_revision"] == "5dd4032d14e055a1d8c20a2e445d27db4d63cd3e"
+          assert len(details["bottle"]["tags"]) == 1
+          tag, tag_details = next(iter(details["bottle"]["tags"].items()))
+          actual = hashlib.sha256(bottles[0].read_bytes()).hexdigest()
+          assert actual == tag_details["sha256"], (actual, tag_details["sha256"])
+          result = {"bottle": bottles[0].name, "tag": tag, "sha256": actual,
+                    "source_run": 37147613379, "source_revision": details["formula"]["tap_git_revision"],
+                    "updated_formula_blob": "32b778c738427c3b4e0784d676f460bf23bf85c4"}
+          (output / "validation.json").write_text(json.dumps(result, indent=2) + "\n")
+          print(json.dumps(result, indent=2))
+          PYTHON
+          cp "$RUNNER_TEMP"/localsend-input/*.bottle.* "$RUNNER_TEMP/localsend-revalidation/"
+
+      - name: Install genuine generated bottle
+        run: |
+          shopt -s nullglob
+          bottles=("$RUNNER_TEMP"/localsend-input/localsend-cli--1.18.2.*.bottle.tar.gz)
+          test "${#bottles[@]}" -eq 1
+          brew install --force-bottle "${bottles[0]}" 2>&1 | tee "$RUNNER_TEMP/localsend-revalidation/brew-install.log"
+          python3 - "$(brew --cellar localsend-cli)/1.18.2/INSTALL_RECEIPT.json" <<'PYTHON'
+          import json
+          import sys
+          with open(sys.argv[1], encoding="utf-8") as receipt:
+              assert json.load(receipt)["poured_from_bottle"] is True
+          PYTHON
+
+      - name: Test updated formula and transfer a file
+        run: |
+          brew test localsend-cli 2>&1 | tee "$RUNNER_TEMP/localsend-revalidation/brew-test.log"
+          mkdir -p "$RUNNER_TEMP/localsend-revalidation/e2e"
+          python3 "$(brew --repository homebrew/core)/support/localsend-cli-e2e.py" \
+            --log-dir "$RUNNER_TEMP/localsend-revalidation/e2e"
+
+      - name: Audit and style updated formula
+        run: |
+          cd "$(brew --repository homebrew/core)"
+          brew audit --new --strict localsend-cli 2>&1 | tee "$RUNNER_TEMP/localsend-revalidation/brew-audit.log"
+          brew style Formula/l/localsend-cli.rb 2>&1 | tee "$RUNNER_TEMP/localsend-revalidation/brew-style.log"
+
+      - name: Upload revalidation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: localsend-cli-revalidation-${{ matrix.runner }}
+          path: ${{ runner.temp }}/localsend-revalidation
+          if-no-files-found: warn

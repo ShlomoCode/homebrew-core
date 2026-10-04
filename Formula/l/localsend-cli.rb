@@ -31,7 +31,7 @@ class LocalsendCli < Formula
 
     deadline = Time.now + 30
     loop do
-      break if (config_home/"localsend-cli/identity.pem").exist? && begin
+      break if begin
         Socket.tcp("127.0.0.1", port, connect_timeout: 1).close
         true
       rescue Errno::ECONNREFUSED
